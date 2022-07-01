@@ -3,13 +3,13 @@
 #     for i in range(10000):
 #         file.write("/root/nfs/bdd-expr-on-board/bdd_val/images/" + str(i + 1) + ".jpg\n")  
 
-import os
 from re import X
 import cv2
 from utils.metrics import ConfusionMatrix, ap_per_class, box_iou
 import numpy as np
 import torch
 from tqdm import tqdm
+import os
 
 from utils.general import (LOGGER, check_dataset, check_img_size, check_requirements, check_yaml,
                            coco80_to_coco91_class, colorstr, emojis, increment_path, non_max_suppression, print_args,
@@ -43,44 +43,24 @@ def process_batch(detections, labels, iouv):
 
 
 def run():
-    model_name = 'fbnet'
+    # model_name = 'fbnet'
     # model_name = 'mobiledets'
-    # model_name = 'ours'
+    model_name = 'ours'
+    # model_name = 'ours_conThres0.5_nmsThres0.2'
 
-    # model_name = 'ours_stdcghosthead10_epoch295'
+    # model_name = 'fbnet_confThres0.3'
 
-    # model_name = 'ghost_relu2'
-    # model_name = 'ghost_relu3'
-    # model_name = 'ghost_relu3_rgb'
-    # model_name = 'ghost_relu3_hp'u
-    # model_name = "fbnet_confThres0.4_nmsThres0.45"
-    # model_name = "fbnet_confThres0.35_nmsThres0.45"
-    # model_name = "mobiledets_confThres0.4_nmsThres0.45"
 
-    # model_name = "ghost_relu3_confThres0.4_nmsThres0.45"
-    # model_name = "mobiledets_confThres0.35_nmsThres0.45"
-    # model_name = "fbnet_confThres0.30_nmsThres0.45"
-
-    # model_name = "mobiledets_confThres0.30_nmsThres0.45"
-    # model_name = "ghost_relu3_confThres0.5_nmsThres0.6"
-    # model_name = "fbnet_confThres0.5_nmsThres0.6"
-    # model_name = "mobiledets_confThres0.5_nmsThres0.6"
-    # model_name = "fbnet_confThres0.4_nmsThres0.6"
-    # model_name = "mobiledets_confThres0.4_nmsThres0.6"
-    # model_name = "ghost_relu3_confThres0.4_nmsThres0.6"
-
-    # model_name = 'ours_stdcghosthead5-epoch80_inst_confThres0.35'
-
-    if os.path.exists(f'bdd_val_out/{model_name}_ref') is False:
-        os.mkdir(f'bdd_val_out/{model_name}_ref')
-        os.mkdir(f'bdd_val_out/{model_name}_ref/preds')
+    if os.path.exists(f'ccpd_val_out/{model_name}_ref') is False:
+        os.mkdir(f'ccpd_val_out/{model_name}_ref')
+        os.mkdir(f'ccpd_val_out/{model_name}_ref/preds')
         
 
     nc = 1
     iouv = torch.linspace(0.5, 0.95, 10)  # iou vector for mAP@0.5:0.95
     niou = iouv.numel()
 
-    out_dir = f'bdd_val_out/{model_name}_ref'
+    out_dir = f'ccpd_val_out/{model_name}_ref'
 
     plots = True
 
@@ -89,6 +69,7 @@ def run():
 
     names = {0: "car"}
 
+    class_map = list(range(1000))
     s = ('%20s' + '%11s' * 4) % ('Class', 'Images', 'P', 'R', 'mAP@.5')
     dt, p, r, f1, mp, mr, map50, map = [0.0, 0.0, 0.0], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     loss = torch.zeros(3)
@@ -97,12 +78,12 @@ def run():
     # pbar = tqdm(dataloader, desc=s, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')  # progress bar
 
 
-    all_inference_result = np.loadtxt(f"/mnt/d/Littro_3519A/ubuntu/bdd-expr-on-board/release/valid_out/{model_name}_out.txt", dtype=np.float64, delimiter=',')
+    all_inference_result = np.loadtxt(f"/mnt/d/Littro_3519A/ubuntu/ccpd-expr-on-board/release/valid_out/{model_name}_out.txt", dtype=np.float64, delimiter=',')
 
     for si in tqdm(range(1, 10001, 1)): # 遍历
         # 得到该图片的所有，label 信息
         pred = torch.from_numpy(all_inference_result[np.where(all_inference_result[:, 0] == si)][:, 1:])
-        labels = torch.from_numpy(np.loadtxt(f"/mnt/d/Littro_3519A/ubuntu/bdd-expr-on-board/bdd_val/labels/val/{si}.txt", dtype=np.float64, delimiter=' '))
+        labels = torch.from_numpy(np.loadtxt(f"/mnt/d/Littro_3519A/ubuntu/ccpd/val/labels/{si}.txt", dtype=np.float64, delimiter=' '))
         if labels.dim() == 1:
             if labels.size()[0] == 0:
                 labels = torch.reshape(labels, (0, 5))
@@ -113,9 +94,8 @@ def run():
         # 得到该图片的所有，pred 信息
         # labels 信息和 pred 信息的长度
         nl, npr = labels.shape[0], pred.shape[0]  # number of labels, predictions
-        # 图片的 路径，图片的形状
-        path = f"/mnt/d/Littro_3519A/ubuntu/bdd-expr-on-board/bdd_val/images/val/{si}.jpg"
-        shape = [720, 1280]
+        # 图片的形状
+        shape = [1160, 720]
 
         # 初始化 correct 张量，全为0，形状 npr * 10，表示 每个 pred 是否正确
         correct = torch.zeros(npr, niou, dtype=torch.bool)  # init
@@ -153,11 +133,13 @@ def run():
             tbox[:, 3] = tbox[:, 3] * shape[0]
 
             if si < 50:
-                img = cv2.imread(f"/mnt/d/Littro_3519A/ubuntu/bdd-expr-on-board/bdd_val/images/val/{si}.jpg")
-                for i in range(len(tbox)):
-                    cv2.rectangle(img, (int(tbox[i, 0]), int(tbox[i, 1])), (int(tbox[i, 2]), int(tbox[i, 3])), (0, 255, 0), 2)
+                img = cv2.imread(f"/mnt/d/Littro_3519A/ubuntu/ccpd/val/images/{si}.jpg")
+
                 for i in range(len(predn)):
                     cv2.rectangle(img, (int(predn[i, 0]), int(predn[i, 1])), (int(predn[i, 2]), int(predn[i, 3])), (0, 0, 255), 2)
+
+                for i in range(len(tbox)):
+                    cv2.rectangle(img, (int(tbox[i, 0]), int(tbox[i, 1])), (int(tbox[i, 2]), int(tbox[i, 3])), (0, 255, 0), 2)
 
                 cv2.imwrite(out_dir + f"/preds/pred_{si}.jpg", img)
 
@@ -195,6 +177,7 @@ def run():
 
     # print("\t\tclass      seen       nt          mp         mr       map50     map[0.5:0.95]")
     print(s)
+
     # Print results
     pf = '%20s' + '%11i' + '%11.3g' * 3  # print format
     LOGGER.info(pf % ('all', seen, mp, mr, map50))

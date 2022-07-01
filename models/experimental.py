@@ -11,6 +11,17 @@ import torch.nn as nn
 from models.common import Conv
 from utils.downloads import attempt_download
 
+class GhostConv(nn.Module):
+    # Ghost Convolution https://github.com/huawei-noah/ghostnet
+    def __init__(self, c1, c2, k=1, s=1, g=1, act=True):  # ch_in, ch_out, kernel, stride, groups
+        super().__init__()
+        c_ = c2 // 2  # hidden channels
+        self.cv1 = Conv(c1, c_, k, s, None, g, act)
+        self.cv2 = Conv(c_, c_, 5, 1, None, c_, act)
+
+    def forward(self, x):
+        y = self.cv1(x)
+        return torch.cat((y, self.cv2(y)), 1)
 
 class Sum(nn.Module):
     # Weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
