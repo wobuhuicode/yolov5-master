@@ -257,6 +257,7 @@ fabric.properties
 
 # bdd-expr
 bdd_val_out/
+ccpd_val_out/
 weights/
 weights/*
 
