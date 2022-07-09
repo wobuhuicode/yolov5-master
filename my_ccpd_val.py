@@ -45,7 +45,9 @@ def process_batch(detections, labels, iouv):
 def run():
     # model_name = 'fbnet'
     # model_name = 'mobiledets'
+    # model_name = 'ofa'
     model_name = 'ours'
+
     # model_name = 'ours_conThres0.5_nmsThres0.2'
 
     # model_name = 'fbnet_confThres0.3'
@@ -67,7 +69,7 @@ def run():
     seen = 0
     confusion_matrix = ConfusionMatrix(nc=nc)
 
-    names = {0: "car"}
+    names = {0: "car plate"}
 
     class_map = list(range(1000))
     s = ('%20s' + '%11s' * 4) % ('Class', 'Images', 'P', 'R', 'mAP@.5')

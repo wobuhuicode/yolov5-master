@@ -43,9 +43,10 @@ def process_batch(detections, labels, iouv):
 
 
 def run():
-    model_name = 'fbnet'
+    # model_name = 'fbnet'
     # model_name = 'mobiledets'
-    # model_name = 'ours'
+    # model_name = 'ofa'
+    model_name = 'ours'
 
     # model_name = 'ours_stdcghosthead10_epoch295'
 
@@ -114,7 +115,7 @@ def run():
         # labels 信息和 pred 信息的长度
         nl, npr = labels.shape[0], pred.shape[0]  # number of labels, predictions
         # 图片的 路径，图片的形状
-        path = f"/mnt/d/Littro_3519A/ubuntu/bdd-expr-on-board/bdd_val/images/val/{si}.jpg"
+        # path = f"/mnt/d/Littro_3519A/ubuntu/bdd-expr-on-board/bdd_val/images/val/{si}.jpg"
         shape = [720, 1280]
 
         # 初始化 correct 张量，全为0，形状 npr * 10，表示 每个 pred 是否正确
