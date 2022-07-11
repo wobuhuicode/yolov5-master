@@ -46,7 +46,9 @@ def run():
     # model_name = 'fbnet'
     # model_name = 'mobiledets'
     # model_name = 'ofa'
-    model_name = 'ours'
+    # model_name = 'ours'
+
+    model_name = 'yolov6n_no_mosa_output'
 
     # model_name = 'ours_stdcghosthead10_epoch295'
 
@@ -98,7 +100,9 @@ def run():
     # pbar = tqdm(dataloader, desc=s, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')  # progress bar
 
 
-    all_inference_result = np.loadtxt(f"/mnt/d/Littro_3519A/ubuntu/bdd-expr-on-board/release/valid_out/{model_name}_out.txt", dtype=np.float64, delimiter=',')
+    # all_inference_result = np.loadtxt(f"/mnt/d/Littro_3519A/ubuntu/bdd-expr-on-board/release/valid_out/{model_name}_out.txt", dtype=np.float64, delimiter=',')
+    all_inference_result = np.loadtxt(f"/mnt/d/Littro_3519A/ubuntu/bdd-expr-yolov6/release/valid_output/yolov6n_no_mosa_output.txt", dtype=np.float64, delimiter=',')
+
 
     for si in tqdm(range(1, 10001, 1)): # 遍历
         # 得到该图片的所有，label 信息
