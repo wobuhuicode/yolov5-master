@@ -312,3 +312,28 @@ class ModelEMA:
     def update_attr(self, model, include=(), exclude=('process_group', 'reducer')):
         # Update EMA attributes
         copy_attr(self.ema, model, include, exclude)
+
+def print_model_details(model_name):
+    if 'fb' in model_name:
+        paper_name = 'Wu B, Dai X, Zhang P, et al. Fbnet: Hardware-aware efficient convnet design via differentiable neural architecture search[C]// IEEE/CVF Conference on Computer Vision and Pattern Recognition. 2019.'
+        institute = 'Facebook AI Research'
+        code_url = 'https://github.com/facebookresearch/mobile-vision'
+
+    elif 'mobiledets' in model_name:
+        paper_name = 'Xiong Y, Liu H, Gupta S, et al. Mobiledets: Searching for object detection architectures for mobile accelerators[C]// IEEE/CVF Conference on Computer Vision and Pattern Recognition. 2021.'
+        institute = 'University of Wisconsin-Madison & Google'
+        code_url = 'https://github.com/tensorflow/models/tree/master/research/object_detection'
+
+    elif 'ofa' in model_name:
+        paper_name = 'Cai H, Gan C, Wang T, et al. Once-for-All: Train One Network and Specialize it for Efficient Deployment[C]//International Conference on Learning Representations. 2020.'
+        institute = 'Massachusetts Institute of Technology'
+        code_url = 'https://github.com/mit-han-lab/once-for-all'
+
+    print(f'\033[34mmodel_name\033[0m: {model_name}')
+    print(f'\033[34mpaper\033[0m: {paper_name}')
+    print(f'\033[34minstitute\033[0m: {institute}')
+    print(f'\033[34mcode\033[0m: {code_url}')
+
+
+    
+

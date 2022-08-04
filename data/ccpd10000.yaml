@@ -1,0 +1,12 @@
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# Example usage: python train.py --data bdd_yolo.yaml
+
+
+train: # train images (relative to 'path')  16551 images
+  - /mnt21t/home/wyh/wyh_project/CCPD2019ORI/CCPD2019/images/train
+val: # val images (relative to 'path')  4952 images
+  - /mnt21t/home/wyh/zkl_project/dataset/ccpd10000/images/val
+
+# Classes
+nc: 1  # number of classes
+names: ['license plate']  # class names

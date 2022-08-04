@@ -90,6 +90,8 @@ def attempt_load(weights, device=None, inplace=True, fuse=True):
     for w in weights if isinstance(weights, list) else [weights]:
         ckpt = torch.load(attempt_download(w), map_location=device)
         ckpt = (ckpt.get('ema') or ckpt['model']).float()  # FP32 model
+        if isinstance(weights, str) and 'ofa' in weights:
+            fuse = False
         model.append(ckpt.fuse().eval() if fuse else ckpt.eval())  # fused or un-fused model in eval mode
 
     # Compatibility updates

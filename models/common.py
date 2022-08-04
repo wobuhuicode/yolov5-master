@@ -15,8 +15,6 @@ import cv2
 import numpy as np
 import pandas as pd
 import requests
-from scipy.fftpack import shift
-from sympy import true
 import torch
 import torch.nn as nn
 import yaml
@@ -39,11 +37,16 @@ def autopad(k, p=None):  # kernel, padding
 
 class Conv(nn.Module):
     # Standard convolution
-    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):  # ch_in, ch_out, kernel, stride, padding, groups
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True, autopad_=True):  # ch_in, ch_out, kernel, stride, padding, groups
         super().__init__()
-        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
+        if autopad_:
+            self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
+        else:
+            self.conv = nn.Conv2d(c1, c2, k, s, 0, groups=g, bias=False)
         self.bn = nn.BatchNorm2d(c2)
-        self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+
+        #self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+        self.act = nn.LeakyReLU(0.1, inplace=True) if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
 
     def forward(self, x):
         return self.act(self.bn(self.conv(x)))
@@ -1006,3 +1009,133 @@ class BottleneckSTDC(nn.Module):
         y = self.cv1(x)
         y1 = self.cv4(y)
         return x + (torch.cat((y1 , self.cv5(y1), self.cv3(y)), 1))  if self.add else (torch.cat((y1 , self.cv5(y1), self.cv1(y)), 1)) 
+
+class BottleneckSTDCReal(nn.Module):
+    # Standard bottleneck
+    def __init__(self, c1, c2, k=3, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, shortcut, groups, expansion
+        super().__init__()
+        c_ = int(c2 * e)  # hidden channels
+        self.cv1 = Conv(c1, c_, 1, 1)
+        c3 = c2//2
+        c4 = c2//4
+        act = nn.ReLU(inplace=True)
+        self.cv2 = Conv(c_, c4, 3, 1, g=g, act = act)
+        self.cv3 = Conv(c4, c4, 5, 1, g=g, act = act)
+        self.cv4 = Conv(c2, c2, 3, 1, g=g, act = act)
+        self.add = shortcut and c1 == c2
+
+    def forward(self, x):
+        y = self.cv1(x)
+        y1 = self.cv2(y)
+        return x + self.cv4((torch.cat((y, y1, self.cv3(y1)), 1)))  if self.add else self.cv4((torch.cat((y, y1, self.cv3(y1)), 1)))
+
+
+class C3STDCReal(nn.Module):
+    # CSP Bottleneck with 3 convolutions
+    def __init__(self, c1, c2, k = 3, n=1, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, number, shortcut, groups, expansion
+        super().__init__()
+        c_ = int(c2 * e)  # hidden channels
+        act = nn.ReLU(inplace=True)
+        self.cv1 = Conv(c1, c_, 1, 1, act=act)
+        self.cv2 = Conv(c1, c_, 1, 1, act=act)
+        self.cv3 = Conv(2 * c_, c2, 1, act=act)  # optional act=FReLU(c2)
+        self.m = nn.Sequential(*(BottleneckSTDCReal(c_, c_, k, shortcut, g) for _ in range(n)))
+        # self.m = nn.Sequential(*(CrossConv(c_, c_, 3, 1, g, 1.0, shortcut) for _ in range(n)))
+
+    def forward(self, x):
+        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
+
+
+class C3NasBlock(C3):
+    # CSP Bottleneck with 3 convolutions
+    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, number, shortcut, groups, expansion
+        super().__init__(c1, c2, n, shortcut, g, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(NasBlock(c_, c_) for _ in range(n)))
+
+
+class NasBlock(nn.Module):
+    # NasBlock
+    def __init__(self, c1, c2):  # ch_in, ch_out, number, shortcut, groups, expansion
+        super().__init__()
+        c_ = c1 // 4
+        self.pw_in = Conv(c1, c_, 1, 1, act=False)
+        self.dep_3 = Conv(c_, c_, 3, 1, g = c_)
+        self.dep_5 = Conv(c_, c_, 5, 1, g = c_)
+        self.fac_17 = Conv(c_, c_, (1, 7), 1, g = 1)
+        self.fac_71 = Conv(c_, c_, (7, 1), 1, g = 1)
+        self.conv = Conv(c_, c_, 3, 1, g = 1)
+        self.pw_out = Conv(c_ * 5, c2, 1, 1, g = 1)
+
+    def forward(self, x):
+        x = self.pw_in(x)
+
+        dep_1 = self.dep_3(x)
+        dep_2 = self.dep_3(x)
+        fac_1 = self.fac_17(x)
+        conv_1 = self.conv(x)
+
+        add_1 = torch.add(dep_2, fac_1)
+        fac_2 = self.fac_71(add_1)
+        conv_2 = self.conv(add_1)
+
+        add_2 = torch.add(dep_1, conv_2)
+        add_3 = torch.add(fac_2, conv_1)
+
+        # ADD 2 Branch
+        conv_3 = self.conv(add_2)
+        conv_4 = self.conv(add_2)
+        add_4 = torch.add(conv_3, conv_4)
+
+        # ADD 3 Branch
+        dep_3 = self.dep_3(add_3)
+        dep_4 = self.dep_5(add_3)
+        add_5 = torch.add(dep_3, dep_4)
+
+        # ADD 1 Branch
+        fac_3 = self.fac_17(add_1)
+        fac_4 = self.fac_71(fac_3)
+
+        # Cat
+        cat_1 = torch.cat((add_2, add_3, add_4, add_5, fac_4), 1)
+        return self.pw_out(cat_1)
+
+        
+
+
+class C3GhostFormer(C3):
+    # C3 module with GhostBottleneck()
+    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(GhostFormerBlock(c_, c_) for _ in range(n)))
+
+
+class GhostFormerBlock(nn.Module):
+    # 原创
+    def __init__(self, c1, c2, k=3, s=1):  # ch_in, ch_out, kernel, stride
+        super().__init__()
+        self.c_mid = c2 // 2
+        self.pw_conv = Conv(c1, self.c_mid, k = 1, s = 1, act=nn.ReLU(inplace=True))
+
+    def forward(self, x):
+        shortcut = x
+        w, h = x.size(2), x.size(3)
+        x = self.pw_conv(x)
+        circle_conv_h = nn.Conv2d(self.c_mid, self.c_mid, kernel_size = (w + 1, 1), stride = 1, padding = 0, bias = True, device=x.device)
+        circle_conv_v = nn.Conv2d(self.c_mid, self.c_mid, kernel_size = (1, h + 1), stride = 1, padding = 0, bias = True, device=x.device)
+        cch = circle_conv_h(torch.cat((x, x), 2))
+        ccv = circle_conv_v(torch.cat((x, x), 3))
+
+        hv = torch.cat((cch, ccv), 1)
+        hv = self.pw_conv(hv)
+
+        x = torch.cat((x, hv), 1)
+
+        return x + shortcut
+
+
+
+
+
+
