@@ -1122,11 +1122,12 @@ class Stdc2Block(nn.Module):
         super().__init__()
         c_ = c2 // 2
         self.pw_in = Conv(c1, c_, 1, 1)
-        self.conv = Conv(c_, c_, 3, 1)
+        self.conv1 = Conv(c_, c_, 3, 1)
+        self.conv2 = Conv(c_, c_, 5, 1)
 
     def forward(self, x):
         x = self.pw_in(x)
-        x1 = self.conv(x)
-        x2 = self.conv(x1)
+        x1 = self.conv1(x)
+        x2 = self.conv2(x1)
 
         return torch.cat((x1, x2), 1)
