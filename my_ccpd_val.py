@@ -17,6 +17,7 @@ from utils.general import (LOGGER, check_dataset, check_img_size, check_requirem
                            scale_coords, xywh2xyxy, xyxy2xywh)
 
 from utils.plots import output_to_target, plot_images, plot_val_study
+from utils.torch_utils import print_model_details
 
 def process_batch(detections, labels, iouv):
     """
@@ -59,6 +60,8 @@ def run():
 
     for i in range(len(model_names)):
         print("Validing model: ", model_names[i])
+        if model_names[i] != 'ours':
+            print_model_details(model_names[i])
 
         if os.path.exists(f'ccpd_val_out/{model_names[i]}_ref') is False:
             os.mkdir(f'ccpd_val_out/{model_names[i]}_ref')
@@ -92,7 +95,7 @@ def run():
         for si in tqdm(range(1, 10001, 1)): # 遍历
             # 得到该图片的所有，label 信息
             pred = torch.from_numpy(all_inference_result[np.where(all_inference_result[:, 0] == si)][:, 1:])
-            labels = torch.from_numpy(np.loadtxt(f"/mnt21t/home/wyh/zkl_project/dataset/ccpd10000/labels/{si}.txt", dtype=np.float64, delimiter=' '))
+            labels = torch.from_numpy(np.loadtxt(f"/mnt21t/home/wyh/zkl_project/dataset/ccpd10000/labels/val/{si}.txt", dtype=np.float64, delimiter=' '))
             if labels.dim() == 1:
                 if labels.size()[0] == 0:
                     labels = torch.reshape(labels, (0, 5))
@@ -142,7 +145,7 @@ def run():
                 tbox[:, 3] = tbox[:, 3] * shape[0]
 
                 if si < 50:
-                    img = cv2.imread(f"/mnt21t/home/wyh/zkl_project/dataset/ccpd10000/images/{si}.jpg")
+                    img = cv2.imread(f"/mnt21t/home/wyh/zkl_project/dataset/ccpd10000/images/val/{si}.jpg")
 
                     for i in range(len(predn)):
                         cv2.rectangle(img, (int(predn[i, 0]), int(predn[i, 1])), (int(predn[i, 2]), int(predn[i, 3])), (0, 0, 255), 2)

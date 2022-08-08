@@ -9,7 +9,7 @@ import prettytable as pt
 
 # 按 yaml 初始化模型
 from models.yolo import Detect, Model
-cfg = '/mnt21t/home/wyh/zkl_project/yolov5-master/models/nas_1.yaml'
+cfg = '/mnt21t/home/wyh/zkl_project/yolov5-master/models/gghost.yaml'
 model = Model(cfg, ch=3, nc=1)
 model.fuse()
 model.eval()
@@ -26,7 +26,7 @@ for k, m in model.named_modules():
         m.onnx_dynamic = False
         m.export = True
 
-f = 'nas_1.onnx'
+f = 'gghost.onnx'
 
 torch.onnx.export(
     model,

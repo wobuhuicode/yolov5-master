@@ -23,6 +23,7 @@ import json
 import os
 import sys
 from pathlib import Path
+import prettytable as pt
 
 import numpy as np
 import torch
@@ -42,7 +43,7 @@ from utils.general import (LOGGER, check_dataset, check_img_size, check_requirem
                            scale_coords, xywh2xyxy, xyxy2xywh)
 from utils.metrics import ConfusionMatrix, ap_per_class, box_iou
 from utils.plots import output_to_target, plot_images, plot_val_study
-from utils.torch_utils import select_device, time_sync
+from utils.torch_utils import print_model_details, select_device, time_sync
 
 
 def save_one_txt(predn, save_conf, shape, file):
@@ -339,7 +340,7 @@ def run(
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
-    return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
+    return mp, map50
 
 
 def parse_opt():
@@ -382,12 +383,24 @@ def main(opt):
         
         weights = ['weights/ccpd/fbnet-ccpd.pt', 'weights/ccpd/md-ccpd.pt', 'weights/ccpd/ofa-ccpd.pt', '/mnt21t/home/wyh/zkl_project/yolov5-master/runs/train/ours-ccpd2/weights/last.pt']
         model_names = ['fbnet', 'mobiledets', 'ofa', 'ours']
+        precisions = []
+        map50s = []
         for i in range(len(weights)):
-            if 'ours' not in weights[i]:
-                opt.iou_thres = 0.8
             print('Validating ', model_names[i])
+            if model_names[i] != 'ours':
+                print_model_details(model_names[i])
             opt.weights = weights[i]
-            run(**vars(opt))
+            p, map50 = run(**vars(opt))
+            precisions.append(p)
+            map50s.append(map50)
+        
+        ## 按行添加数据
+        tb = pt.PrettyTable()
+        tb.field_names = ["Model", "P", "Map50"]
+        for i in range(len(precisions)):
+            tb.add_row([model_names[i], '%.3g' % precisions[i], '%.3g' % map50s[i]])
+    
+        print(tb)
 
     else:
         weights = opt.weights if isinstance(opt.weights, list) else [opt.weights]

@@ -1103,39 +1103,30 @@ class NasBlock(nn.Module):
         
 
 
-class C3GhostFormer(C3):
-    # C3 module with GhostBottleneck()
-    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):
-        super().__init__(c1, c2, n, shortcut, g, e)
-        c_ = int(c2 * e)  # hidden channels
-        self.m = nn.Sequential(*(GhostFormerBlock(c_, c_) for _ in range(n)))
-
-
-class GhostFormerBlock(nn.Module):
-    # 原创
-    def __init__(self, c1, c2, k=3, s=1):  # ch_in, ch_out, kernel, stride
+class GGhost(nn.Module):
+    # GGhost Module
+    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, number, shortcut, groups, expansion
         super().__init__()
-        self.c_mid = c2 // 2
-        self.pw_conv = Conv(c1, self.c_mid, k = 1, s = 1, act=nn.ReLU(inplace=True))
+        c_ = int(c2 * e)  # hidden channels
+        self.conv = Conv(c1, c_, 1, 1)
+        self.cheap = Conv(c_, c_, 3, 1, g=c_)
+        self.m = nn.Sequential(*(Stdc2Block(c_, c_) for _ in range(n)))
 
     def forward(self, x):
-        shortcut = x
-        w, h = x.size(2), x.size(3)
-        x = self.pw_conv(x)
-        circle_conv_h = nn.Conv2d(self.c_mid, self.c_mid, kernel_size = (w + 1, 1), stride = 1, padding = 0, bias = True, device=x.device)
-        circle_conv_v = nn.Conv2d(self.c_mid, self.c_mid, kernel_size = (1, h + 1), stride = 1, padding = 0, bias = True, device=x.device)
-        cch = circle_conv_h(torch.cat((x, x), 2))
-        ccv = circle_conv_v(torch.cat((x, x), 3))
-
-        hv = torch.cat((cch, ccv), 1)
-        hv = self.pw_conv(hv)
-
-        x = torch.cat((x, hv), 1)
-
-        return x + shortcut
+        x = self.conv(x)
+        return torch.cat((self.m(x), self.cheap(x)), 1)
 
 
+class Stdc2Block(nn.Module):
+    def __init__(self, c1, c2):
+        super().__init__()
+        c_ = c2 // 2
+        self.pw_in = Conv(c1, c_, 1, 1)
+        self.conv = Conv(c_, c_, 3, 1)
 
+    def forward(self, x):
+        x = self.pw_in(x)
+        x1 = self.conv(x)
+        x2 = self.conv(x1)
 
-
-
+        return torch.cat((x1, x2), 1)
